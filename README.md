@@ -1,12 +1,13 @@
 # aauth-products-api
 
 
+> Nota: Remover los {}
 
 ## Endpoint 1: /login
 
 Este endpoint simula el proceso de inicio de sesión. Envía las credenciales username y password en una solicitud POST para obtener el accessToken y el refreshToken.
 
-    curl -X POST http://localhost:8080/login -d "username=user&password=password"
+    curl -X POST http://localhost:9292/login -d "username=user&password=password"
 
 Respuesta esperada
 Si las credenciales son correctas, recibirás un JSON con ambos tokens:
@@ -28,34 +29,40 @@ Solicitud de Acceso Protegido
 
 
 
-        curl -X GET http://localhost:9292/protected -H "Authorization: Bearer {eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InVzZXIiLCJyb2xlcyI6WyJ1c2VyIl0sImV4cCI6MTczMDg3OTY5N30.j5p6cS9fcc0sR3d0jMOMqiBlc5PyatxtkugKX1q4aQY}"
+## Endpoint 3: /refresh
+
+Para usar el endpoint /refresh y obtener un nuevo accessToken cuando el actual ha expirado.
+
+    curl -X POST http://localhost:9292/refresh -d "refreshToken={refreshToken}"
 
 
 
+**Respuesta con un Nuevo accessToken:**
 
-3. Revisar el Middleware de Autorización
+Si el refreshToken es válido y no ha expirado, el servidor te devuelve un nuevo accessToken, que podrás usar para futuras solicitudes a los recursos protegidos.
+Si el refreshToken ha expirado o es inválido, el usuario tendrá que autenticarse de nuevo (es decir, volver a hacer login).
 
-curl -X GET http://localhost:9292/protected -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InVzZXIiLCJyb2xlcyI6WyJ1c2VyIl0sImV4cCI6MTczMDg4MDMwNn0.FSBiRuDxAslZGHm-DfHnJxsT0no9DmybjJ2hQFhtoI4"
+
+### Concepto de sesión
+
+En este programa, la "sesión" se maneja de forma ligera, utilizando tokens en lugar de almacenar información de la sesión en el servidor. Esto implica:
+
+Sin Estado en el Servidor: El servidor no almacena el estado de la sesión del usuario. En su lugar, depende de los tokens JWT para verificar la autenticación. Cada solicitud incluye un token que es auto-suficiente, conteniendo toda la información necesaria (como el nombre de usuario y roles) para validar la solicitud.
+
+Control de Tiempo de Vida: La sesión tiene dos tiempos de vida distintos:
+
+Token de Acceso: Este define la duración de la sesión activa en la aplicación (por ejemplo, 15 minutos). Si el accessToken expira, el usuario debe solicitar un nuevo token usando el refreshToken.
+Token de Refresh: Controla la duración general de la sesión. Mientras el refreshToken sea válido, el usuario puede continuar renovando el accessToken. Una vez que el refreshToken expira, el usuario debe autenticarse nuevamente con sus credenciales.
 
 
-Revisa el código de tu middleware para asegurarte de que el token esté siendo validado correctamente. A continuación, algunos puntos importantes:
 
-Decodificación del Token: El middleware debe decodificar el token y verificar su validez, incluyendo la expiración y los roles.
+### Resumen del Proceso Completo
 
-Revisión del Algoritmo de Firma: Confirma que el algoritmo (HS256 en tu caso) y la clave secreta utilizados en el middleware coinciden con los del token generado en /login.
+1. Inicio de Sesión (/login): El usuario envía sus credenciales y recibe accessToken y refreshToken.
 
-4. Mensaje de Error Específico
-Revisa los mensajes de error en la respuesta o en los registros de tu servidor. Esto puede darte información adicional sobre por qué la solicitud es rechazada. Algunos motivos comunes incluyen:
+2. Acceso a Recursos Protegidos (/protected): El usuario utiliza accessToken en el encabezado Authorization para acceder a los recursos protegidos.
 
-Token inválido
-Token expirado
-Problemas de roles o permisos (si el middleware revisa roles)
-5. Habilita Mensajes de Depuración
-Agrega mensajes de depuración en el middleware de autorización, especialmente en las partes donde:
+3. Renovación de Token (/refresh): Cuando el accessToken expira, el usuario usa refreshToken para obtener un nuevo accessToken.
 
-Se decodifica el token.
-Se verifica la validez y la expiración.
-Se revisan los permisos o roles.
-Con estos mensajes, podrás identificar en qué punto exacto se está rechazando el token.
+4. Reinicio de Sesión: Si el refreshToken también expira, el usuario debe autenticarse de nuevo.
 
-Si sigues teniendo problemas, revisa y comparte el código del middleware o la función que verifica el accessToken para que podamos ver en detalle cómo se está manejando la autorización.

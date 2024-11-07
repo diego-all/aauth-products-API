@@ -82,12 +82,19 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 // Middleware para proteger rutas
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header.Get("Authorization")
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			http.Error(w, "No autorizado", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader[7:] // Remover "Bearer " para obtener solo el token
 
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			return jwtSecret, nil
 		})
+
 		if err != nil || !token.Valid {
 			http.Error(w, "No autorizado", http.StatusUnauthorized)
 			return
@@ -148,8 +155,12 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	// Rutas
+	// Delivers a JWT acces token
 	r.Post("/login", loginHandler)
+
 	r.With(authMiddleware).Get("/protected", protectedHandler)
+
+	// Delivers a JWT refresh token
 	r.Post("/refresh", refreshHandler)
 
 	// Iniciar el servidor
